@@ -16,8 +16,7 @@ type Product = {
     compareAtPrice?: number | null;
     images: string[];
     category: string;
-    collection?: string;
-    collectionName?: string;
+    productCollection?: string;
     stock: number;
     featured: boolean;
     active: boolean;
@@ -27,7 +26,7 @@ type Collection = { id: string; name: string; description: string; image?: strin
 type Submission = { id: string; name: string; category: string; collection: string; price: number; status: "Pending" | "Approved" | "Rejected"; description?: string };
 type MediaItem = { id: string; name: string; src: string; source: string };
 type Page = "dashboard" | "products" | "collections" | "submissions" | "media" | "settings";
-type ProductForm = { name: string; category: string; subCategory: string; color: string; collection: string; price: string; compareAtPrice: string; stock: string; description: string; images: string; featured: boolean; active: boolean };
+type ProductForm = { name: string; category: string; subCategory: string; color: string; productCollection: string; price: string; compareAtPrice: string; stock: string; description: string; images: string; featured: boolean; active: boolean };
 // Set VITE_API_URL=http://localhost:5000/api in frontend/.env.local
 const API = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/+$/, "");
 const api = axios.create({
@@ -72,8 +71,8 @@ function normalizeProduct(value: any): Product | null {
         price: Number(raw.price ?? 0),
         compareAtPrice: raw.compareAtPrice == null ? null : Number(raw.compareAtPrice),
         images: Array.isArray(raw.images) ? raw.images : [],
-        collection: typeof raw.collection === "string" ? raw.collection : (raw.collection?.name ?? ""),
-        collectionName: raw.collectionName ?? raw.collection?.name,
+        // Prefer the renamed field while supporting legacy MongoDB documents.
+        productCollection: String(raw.productCollection ?? raw.collection ?? raw.collectionName ?? raw.collection?.name ?? ""),
         stock: Number(raw.stock ?? 0),
         featured: Boolean(raw.featured),
         active: raw.active !== false,
@@ -105,7 +104,7 @@ const defaultCollections: Collection[] = [
     { id: "narikela", name: "Narikela", description: "Natural textures and thoughtful craft." },
 ];
 const categories = ["Jewellery", "Clothing", "Handicrafts", "Artwork", "Accessories", "Other"];
-const initialForm: ProductForm = { name: "", category: "", subCategory: "", color: "", collection: "", price: "", compareAtPrice: "", stock: "0", description: "", images: "", featured: false, active: true };
+const initialForm: ProductForm = { name: "", category: "", subCategory: "", color: "", productCollection: "", price: "", compareAtPrice: "", stock: "0", description: "", images: "", featured: false, active: true };
 const clothingSubCategories = ["Sarees", "Kurti", "Kurta Sets", "Dresses", "Tops", "Blouses", "Lehengas", "Kids Wear", "Men’s Wear", "Dupattas", "Other"];
 const dressColors = ["Black", "White", "Red", "Maroon", "Pink", "Blue", "Navy Blue", "Green", "Olive", "Yellow", "Orange", "Purple", "Brown", "Beige", "Cream", "Grey", "Multicolor"];
 function readLocal<T,>(key: string, fallback: T): T {
@@ -117,7 +116,7 @@ function readLocal<T,>(key: string, fallback: T): T {
 function money(value: number | undefined) {
     return `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
-function productCollection(p: Product) { return p.collectionName || p.collection || ""; }
+function productCollection(p: Product) { return p.productCollection || ""; }
 function productStatus(p: Product) { return !p.active ? "Draft" : Number(p.stock) <= 0 ? "Out of Stock" : "Available"; }
 function statusClass(status: string) {
     if (status === "Draft" || status === "Pending") return "bg-amber-50 text-amber-800";
@@ -196,7 +195,7 @@ export default function Admin() {
             category: product.category || "",
             subCategory: product.subCategory || "",
             color: product.color || "",
-            collection: productCollection(product),
+            productCollection: productCollection(product),
             price: product.compareAtPrice == null ? "" : String(product.price ?? ""),
             compareAtPrice: String(product.compareAtPrice ?? product.price ?? ""),
             stock: String(product.stock ?? 0),
@@ -221,7 +220,7 @@ export default function Admin() {
         }
         const body = {
             name: form.name.trim(), category: form.category, subCategory: form.category === "Clothing" ? form.subCategory : "",
-            color: form.category === "Clothing" ? form.color : "", collection: form.category === "Jewellery" ? form.collection : "",
+            color: form.category === "Clothing" ? form.color : "", productCollection: form.category === "Jewellery" ? form.productCollection : "",
             price, compareAtPrice, stock, description: form.description.trim(),
             images: form.images.split("\n").map((image) => image.trim()).filter(Boolean),
             featured: form.featured, active: form.active,
@@ -472,8 +471,8 @@ export default function Admin() {
                     </div>
                     <div className="grid gap-x-5 gap-y-4 rounded-2xl border border-[#eee3d6] bg-white p-4 sm:grid-cols-2 sm:p-5">
                         <Field label="Product name *"><input className="control w-full rounded-xl border border-[#e2d4c3] bg-white px-3.5 py-3 text-sm font-normal text-[#33251f] shadow-sm outline-none transition placeholder:text-[#b3a397] hover:border-[#c8ad8e] focus:border-[#9a7047] focus:ring-4 focus:ring-[#9a7047]/10" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="Handcrafted necklace" /></Field>
-                        <Field label="Category *"><select className="control rounded-xl border-[#d9c8b2] bg-[#fffdf9] px-3 py-3 focus:border-[#9a7047] focus:ring-2 focus:ring-[#9a7047]/15" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value, subCategory: "", collection: "", color: "" })} required><option value="">Select category</option>{categories.map((c) => <option key={c}>{c}</option>)}</select></Field>
-                        {form.category === "Jewellery" && <Field label="Jewellery collection"><select className="control rounded-xl border-[#d9c8b2] bg-[#fffdf9] px-3 py-3" value={form.collection} onChange={(e) => setForm({ ...form, collection: e.target.value })}><option value="">Choose a collection</option>{collections.slice(0, 7).map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}</select></Field>}
+                        <Field label="Category *"><select className="control rounded-xl border-[#d9c8b2] bg-[#fffdf9] px-3 py-3 focus:border-[#9a7047] focus:ring-2 focus:ring-[#9a7047]/15" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value, subCategory: "", productCollection: "", color: "" })} required><option value="">Select category</option>{categories.map((c) => <option key={c}>{c}</option>)}</select></Field>
+                        {form.category === "Jewellery" && <Field label="Jewellery collection"><select className="control rounded-xl border-[#d9c8b2] bg-[#fffdf9] px-3 py-3" value={form.productCollection} onChange={(e) => setForm({ ...form, productCollection: e.target.value })}><option value="">Choose a collection</option>{collections.slice(0, 7).map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}</select></Field>}
                         {form.category === "Clothing" && <Field label="Clothing sub-category *"><select className="control rounded-xl border-[#d9c8b2] bg-[#fffdf9] px-3 py-3" value={form.subCategory} onChange={(e) => setForm({ ...form, subCategory: e.target.value })} required><option value="">Choose clothing type</option>{clothingSubCategories.map((item) => <option key={item} value={item}>{item}</option>)}</select></Field>}
                         {form.category === "Clothing" && <Field label="Dress colour"><select className="control rounded-xl border-[#d9c8b2] bg-[#fffdf9] px-3 py-3" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })}><option value="">Choose colour</option>{dressColors.map((color) => <option key={color} value={color}>{color}</option>)}</select></Field>}
                         <Field label="MRP / Regular price (₹) *">
