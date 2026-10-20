@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNo
 import axios, { AxiosError } from "axios";
 import {
     LayoutDashboard, Package, Layers3, Inbox, Images, Settings, Plus, Search,
-    Pencil, Trash2, ExternalLink, Sparkles, Boxes, Menu, X, ChevronRight,
+    Pencil, Trash2, ExternalLink, Sparkles,  Menu, X, 
     Download, Upload, CheckCircle2, AlertCircle, RefreshCw, Image as ImageIcon,
 } from "lucide-react";
 type Product = {
