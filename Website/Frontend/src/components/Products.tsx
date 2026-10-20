@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
-  SlidersHorizontal,
   Search,
   Heart,
   ShoppingBag,
   X,
-  ChevronDown,
   RotateCcw,
   Check,
   Sparkles,

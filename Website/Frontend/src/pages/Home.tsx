@@ -77,8 +77,6 @@ const sectionHeading =
   "font-serif text-2xl sm:text-4xl lg:text-5xl font-normal tracking-tight text-[#493729]";
 const eyebrow =
   "text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.3em] text-[#997541]";
-const primaryButton =
-  "w-full sm:w-auto inline-flex items-center justify-center gap-3 rounded-full bg-[#493729] px-7 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-[#f7f1e6] shadow-md transition-all active:scale-95 hover:bg-[#6b503c]";
 const outlineButton =
   "w-full sm:w-auto inline-flex items-center justify-center gap-3 rounded-full border border-[#8b6a3e] bg-transparent px-7 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-[#493729] transition-all active:scale-95 hover:bg-[#493729] hover:text-[#f8f1e5]";
 

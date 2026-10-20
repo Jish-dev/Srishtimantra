@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type{ FormEvent} from "react"
 import axios from "axios";
 import { ArrowLeft, CheckCircle2, LockKeyhole, MapPin, PackageCheck, ShoppingBag, Truck } from "lucide-react";
 import { CART_KEY, STORE_EVENT, readStore, writeStore, productKey, type StoreProduct } from "../components/store";
