@@ -77,9 +77,9 @@ function productData(body: Record<string, unknown>) {
       typeof body.category === "string" && body.category.trim()
         ? body.category.trim()
         : "Uncategorized",
-    collection:
-      typeof body.collection === "string"
-        ? body.collection.trim()
+    productCollection:
+      typeof body.productCollection === "string"
+        ? body.productCollection.trim()
         : "",
     stock: body.stock === undefined ? 0 : Number(body.stock),
     featured: body.featured === true,
@@ -124,8 +124,8 @@ export async function getProducts(
       filter.category = req.query.category;
     }
 
-    if (typeof req.query.collection === "string") {
-      filter.collection = req.query.collection;
+    if (typeof req.query.productCollection === "string") {
+      filter.collection = req.query.productCollection;
     }
 
     if (req.query.featured === "true") {

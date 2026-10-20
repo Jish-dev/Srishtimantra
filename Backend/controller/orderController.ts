@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import mongoose from "mongoose";
-import Order from "../models/Order.js";
+import Order from "../models/order.js";
 import Product from "../models/product.js";
 
 const isNonEmpty = (value: unknown) => typeof value === "string" && value.trim().length > 0;

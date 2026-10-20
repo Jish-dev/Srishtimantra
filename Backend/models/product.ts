@@ -13,7 +13,7 @@ const productSchema = new Schema(
         price: { type: Number, required: true, min: 0 },
         compareAtPrice: { type: Number, default: null },
         images: { type: [String], default: [] },
-        category: { type: String, default: "" },
+        productCollection: { type: String, default: "" },
         collection: { type: String, default: "" },
         stock: { type: Number, default: 0, min: 0 },
         featured: { type: Boolean, default: false },
