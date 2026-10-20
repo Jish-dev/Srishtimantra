@@ -1,5 +1,9 @@
 
-import mongoose, { Schema, type InferSchemaType } from "mongoose";
+import mongoose, {
+    Schema,
+    type InferSchemaType,
+    type Model,
+} from "mongoose";
 
 const productSchema = new Schema(
     {
@@ -13,15 +17,15 @@ const productSchema = new Schema(
         collection: { type: String, default: "" },
         stock: { type: Number, default: 0, min: 0 },
         featured: { type: Boolean, default: false },
-        active: { type: Boolean, default: true }
+        active: { type: Boolean, default: true },
     },
     { timestamps: true }
 );
 
 export type ProductType = InferSchemaType<typeof productSchema>;
 
-const Product =
-    mongoose.models.Product ??
-    mongoose.model("Product", productSchema);
+const Product: Model<ProductType> =
+    (mongoose.models.Product as Model<ProductType>) ||
+    mongoose.model<ProductType>("Product", productSchema);
 
 export default Product;

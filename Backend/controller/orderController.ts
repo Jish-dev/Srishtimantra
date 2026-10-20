@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import mongoose from "mongoose";
-import Order from "../models/Order.js";
+import Order from "../models/order.js";
 import Product from "../models/product.js";
 
 const isNonEmpty = (value: unknown) => typeof value === "string" && value.trim().length > 0;
@@ -63,7 +63,11 @@ export async function createOrder(req: Request, res: Response) {
       };
     });
 
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const subtotal = items.reduce(
+      (sum: number, item: { price: number; quantity: number }) =>
+        sum + item.price * item.quantity,
+      0
+    );
     const shipping = subtotal === 0 || subtotal >= 1999 ? 0 : 99;
     const total = subtotal + shipping;
     const orderId = `SM-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
