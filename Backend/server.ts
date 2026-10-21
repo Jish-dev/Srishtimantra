@@ -15,7 +15,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
   "https://srishtimantra.vercel.app",
-  "https://srishtimantra-admin-ovyrrjzz5-jishnu-devs-projects.vercel.app",
+  "https://srishtimantra-admin.vercel.app/",
   process.env.FRONTEND_URL,
 ].filter((origin): origin is string => Boolean(origin));
 
