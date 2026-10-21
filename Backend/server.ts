@@ -23,7 +23,7 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "10mb" }));
 
 // API root
 app.get("/", (_req, res) => {
