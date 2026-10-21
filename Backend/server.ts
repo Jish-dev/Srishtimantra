@@ -5,9 +5,9 @@ import cors from "cors";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import connectDB from "./dist/config/db.js";
+import connectDB from "./config/db.js";
 
-import productRoutes from "./dist/routes/productroutes.js";
+import productRoutes from "./routes/productroutes.js";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
