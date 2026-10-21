@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode, type ChangeEvent } from "react";
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 import {
     LayoutDashboard, Package, Layers3, Inbox, Images, Settings, Plus, Search,
     Pencil, Trash2, ExternalLink, Sparkles,  Menu, X, 
@@ -27,36 +27,55 @@ type Submission = { id: string; name: string; category: string; collection: stri
 type MediaItem = { id: string; name: string; src: string; source: string };
 type Page = "dashboard" | "products" | "collections" | "submissions" | "media" | "settings";
 type ProductForm = { name: string; category: string; subCategory: string; color: string; productCollection: string; price: string; compareAtPrice: string; stock: string; description: string; images: string; featured: boolean; active: boolean };
-// Set VITE_API_URL=http://localhost:5000/api in frontend/.env.local
-const API = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/+$/, "");
+// Local development: frontend/.env.local -> VITE_API_URL=http://localhost:5000/api
+// Vercel production: set VITE_API_URL=https://srishtimantra-1.onrender.com/api
+const API = (
+    import.meta.env.VITE_API_URL || "http://localhost:5000/api"
+).replace(/\/+$/, "");
+
 const api = axios.create({
-    baseURL: API,
-    timeout: 15000,
-    headers: { "Content-Type": "application/json" },
+    baseURL: API,
+    timeout: 20000,
+    headers: { "Content-Type": "application/json" },
 });
+
 async function apiRequest<T = unknown>(
-    path: string,
-    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" = "GET",
-    data?: unknown,
+    path: string,
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" = "GET",
+    data?: unknown,
 ): Promise<T> {
-    try {
-        const response = await api.request<T>({ method, url: path, data });
-        return response.data;
-    } catch (error) {
-        const axiosError = error as AxiosError<{ message?: string; error?: string }>;
-        if (axiosError.response) {
-            throw new Error(
-                axiosError.response.data?.message ||
-                axiosError.response.data?.error ||
-                `Backend request failed (${axiosError.response.status})`,
-            );
-        }
-        if (axiosError.code === "ECONNABORTED") {
-            throw new Error("The backend request timed out. Please try again.");
-        }
-        throw new Error(`Cannot reach backend at ${API}. Check that the backend is running and CORS allows your frontend URL.`);
-    }
+    try {
+        const response = await api.request<T>({ url: path, method, data });
+        return response.data;
+    } catch (error: unknown) {
+        if (axios.isAxiosError<{ message?: string; error?: string }>(error)) {
+            if (error.response) {
+                const message =
+                    error.response.data?.message ||
+                    error.response.data?.error ||
+                    `Request failed with status ${error.response.status}`;
+                throw new Error(message);
+            }
+
+            if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
+                throw new Error("The backend request timed out. Please try again.");
+            }
+
+            if (error.code === "ERR_NETWORK") {
+                throw new Error(
+                    `Cannot connect to ${API}. Check the backend URL, CORS configuration, and Render service status.`,
+                );
+            }
+
+            throw new Error(error.message || "Network request failed.");
+        }
+
+        throw new Error(
+            error instanceof Error ? error.message : "An unexpected error occurred.",
+        );
+    }
 }
+
 function normalizeProduct(value: any): Product | null {
     // Accept common Express response shapes and both Mongo _id / API id fields.
     const raw = value?.product ?? value?.data?.product ?? value?.data ?? value;
