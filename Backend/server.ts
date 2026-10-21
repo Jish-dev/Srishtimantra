@@ -13,6 +13,7 @@ const PORT = Number(process.env.PORT) || 5000;
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
+  "https://srishtimantra-admin-ovyrrjzz5-jishnu-devs-projects.vercel.app",
   process.env.FRONTEND_URL,
 ].filter((origin): origin is string => Boolean(origin));
 
@@ -20,7 +21,7 @@ app.use(
   cors({
     origin: allowedOrigins,
     credentials: true,
-  })
+  }),
 );
 
 app.use(express.json({ limit: "10mb" }));
