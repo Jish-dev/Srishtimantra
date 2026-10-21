@@ -523,7 +523,7 @@ export default function Home() {
 
           {[
 
-            { title: "New Arrivals", subtitle: "Fresh finds", number: "01", symbol: "✳" },
+            { title: "New Arrivals", subtitle: "Fresh finds", number: "01", symbol: "★" },
 
             { title: "Special Offers", subtitle: "Special awaits", number: "02", symbol: "✦" },
 
@@ -607,7 +607,7 @@ export default function Home() {
 
               <span className="h-px w-6 bg-[#bca47e]" />
 
-              <span>✳</span>
+              <span>✦</span>
 
               <span className="h-px w-6 bg-[#bca47e]" />
 
@@ -725,7 +725,7 @@ export default function Home() {
 
               <span className="h-px w-8 bg-[#bca47e]" />
 
-              <span>✳</span>
+              <span>✦</span>
 
             </div>
 
@@ -765,7 +765,7 @@ export default function Home() {
               </p>
               <div className="mt-3 flex items-center justify-center gap-3 text-[#a88652]">
                 <span className="h-px w-8 bg-[#bca47e]" />
-                <span>✳</span>
+                <span></span>
                 <span className="h-px w-8 bg-[#bca47e]" />
               </div>
             </div>
@@ -891,7 +891,7 @@ export default function Home() {
 
               <span className="h-px w-8 bg-[#bca47e]" />
 
-              <span>✳</span>
+              <span>✦</span>
 
               <span className="h-px w-8 bg-[#bca47e]" />
 
