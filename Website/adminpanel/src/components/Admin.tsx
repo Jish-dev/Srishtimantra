@@ -442,7 +442,7 @@ export default function Admin() {
                 <div className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-[#d6c0a5]/40 blur-3xl" />
                 <div className="relative w-full max-w-md rounded-3xl border border-[#e6d8c7] bg-[#fffdf9] p-7 shadow-[0_24px_80px_rgba(65,45,30,0.12)] sm:p-9">
                     <div className="mb-8 text-center">
-                        <div className="px-25 sm:w-[180px]"><img src="/s-logo.png" alt="" width="200px"/></div>
+                        <div className="px-25"><img src="/s-logo.png" alt="" width="200px"/></div>
                         
                         <p className="mt-2 text-[10px] font-semibold tracking-[.24em] text-[#9a7859]">ADMINISTRATION PORTAL</p>
                     </div>
