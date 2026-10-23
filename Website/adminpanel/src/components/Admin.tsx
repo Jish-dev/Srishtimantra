@@ -3,7 +3,7 @@ import axios from "axios";
 import {
     LayoutDashboard, Package, Layers3, Inbox, Images, Settings, Plus, Search,
     Pencil, Trash2, ExternalLink, Sparkles, Menu, X,
-    Download, Upload, CheckCircle2, AlertCircle, RefreshCw, Image as ImageIcon,
+    Download, Upload, CheckCircle2, AlertCircle, RefreshCw, Image as ImageIcon, LogOut, Eye, EyeOff,
 } from "lucide-react";
 type Product = {
     _id: string;
@@ -146,7 +146,20 @@ function statusClass(status: string) {
     if (status === "Out of Stock" || status === "Rejected") return "bg-rose-50 text-rose-700";
     return "bg-emerald-50 text-emerald-800";
 }
+// Frontend-only demo login. This is NOT secure authentication; credentials are visible in the browser bundle.
+const ADMIN_USERNAME = "admin";
+const ADMIN_PASSWORD = "sm@123";
+const ADMIN_SESSION_KEY = "srishtimantra_admin_demo_session";
+
 export default function Admin() {
+    const [isAuthenticated, setIsAuthenticated] = useState(() => {
+        try { return sessionStorage.getItem(ADMIN_SESSION_KEY) === "authenticated"; }
+        catch { return false; }
+    });
+    const [loginUsername, setLoginUsername] = useState("");
+    const [loginPassword, setLoginPassword] = useState("");
+    const [showLoginPassword, setShowLoginPassword] = useState(false);
+    const [loginError, setLoginError] = useState("");
     const [page, setPage] = useState<Page>("dashboard");
     const [mobileNav, setMobileNav] = useState(false);
     const [products, setProducts] = useState<Product[]>([]);
@@ -402,6 +415,62 @@ export default function Admin() {
         setCollections(defaultCollections); setSubmissions([]); setMedia([]); setSettings({});
         notify("Local prototype data cleared");
     }
+    function handleLogin(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        if (loginUsername.trim() === ADMIN_USERNAME && loginPassword === ADMIN_PASSWORD) {
+            try { sessionStorage.setItem(ADMIN_SESSION_KEY, "authenticated"); } catch { /* session storage may be disabled */ }
+            setIsAuthenticated(true);
+            setLoginError("");
+            setLoginPassword("");
+        } else {
+            setLoginError("Incorrect username or password. Please try again.");
+        }
+    }
+
+    function handleLogout() {
+        try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch { /* ignore */ }
+        setIsAuthenticated(false);
+        setLoginUsername("");
+        setLoginPassword("");
+        setPage("dashboard");
+    }
+
+    if (!isAuthenticated) {
+        return (
+            <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f4eee5] px-4 py-10 text-[#33251f]">
+                <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-[#e4d2ba]/50 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-[#d6c0a5]/40 blur-3xl" />
+                <div className="relative w-full max-w-md rounded-3xl border border-[#e6d8c7] bg-[#fffdf9] p-7 shadow-[0_24px_80px_rgba(65,45,30,0.12)] sm:p-9">
+                    <div className="mb-8 text-center">
+                        <div className="px-25"><img src="/s-logo.png" alt="" width="200px"/></div>
+                        
+                        <p className="mt-2 text-[10px] font-semibold tracking-[.24em] text-[#9a7859]">ADMINISTRATION PORTAL</p>
+                    </div>
+                    <div className="mb-6">
+                        <h2 className="font-serif text-2xl font-semibold">Welcome back</h2>
+                        <p className="mt-2 text-sm text-[#8a786d]">Sign in to manage your store catalogue.</p>
+                    </div>
+                    <form onSubmit={handleLogin} className="space-y-5">
+                        <div>
+                            <label htmlFor="admin-username" className="mb-2 block text-sm font-medium text-[#493729]">Username</label>
+                            <input id="admin-username" autoComplete="username" className="w-full rounded-xl border border-[#e2d4c3] bg-white px-4 py-3 text-sm outline-none transition placeholder:text-[#b3a397] focus:border-[#9a7047] focus:ring-4 focus:ring-[#9a7047]/10" value={loginUsername} onChange={(e) => setLoginUsername(e.target.value)} placeholder="Enter your username" required />
+                        </div>
+                        <div>
+                            <label htmlFor="admin-password" className="mb-2 block text-sm font-medium text-[#493729]">Password</label>
+                            <div className="relative">
+                                <input id="admin-password" autoComplete="current-password" type={showLoginPassword ? "text" : "password"} className="w-full rounded-xl border border-[#e2d4c3] bg-white px-4 py-3 pr-12 text-sm outline-none transition placeholder:text-[#b3a397] focus:border-[#9a7047] focus:ring-4 focus:ring-[#9a7047]/10" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} placeholder="Enter your password" required />
+                                <button type="button" onClick={() => setShowLoginPassword((show) => !show)} className="absolute inset-y-0 right-0 grid w-12 place-items-center text-[#8a786d] hover:text-[#34251f]" aria-label={showLoginPassword ? "Hide password" : "Show password"}>{showLoginPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+                            </div>
+                        </div>
+                        {loginError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{loginError}</p>}
+                        <button type="submit" className="flex w-full items-center justify-center rounded-xl bg-[#34251f] px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#34251f]/15 transition hover:bg-[#51392c] focus:outline-none focus:ring-4 focus:ring-[#9a7047]/20">Sign in to Admin</button>
+                    </form>
+                    <p className="mt-6 text-center text-xs text-[#a18d7d]">Authorized store management only</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-[#f7f3ed] text-[#33251f] md:grid md:grid-cols-[245px_minmax(0,1fr)]">
             <aside className={`${mobileNav ? "block" : "hidden"} md:flex fixed md:sticky inset-x-0 top-0 z-30 h-screen w-full md:w-auto flex-col gap-7 overflow-y-auto bg-[#34251f] px-4 py-6 text-[#f7eee3] md:inset-x-auto`}>
@@ -440,6 +509,7 @@ export default function Admin() {
                     <div className="flex shrink-0 items-center gap-2.5">
                         <div className="grid h-9 w-9 place-items-center rounded-full bg-[#e6d6c2] font-bold text-[#694733]">A</div>
                         <div className="hidden sm:block"><strong className="block text-xs">Administrator</strong><small className="text-[#8a786d]">Store manager</small></div>
+                        <button onClick={handleLogout} className="ml-2 inline-flex items-center gap-2 rounded-lg border border-[#e2d4c3] bg-white px-3 py-2 text-xs font-semibold text-[#604a3a] transition hover:border-[#b58b55] hover:bg-[#fbf3e7]" title="Sign out"><LogOut size={15} /><span className="hidden sm:inline">Logout</span></button>
                     </div>
                 </header>
                 <div className="mx-auto w-full max-w-[1500px] p-4 sm:p-7">
