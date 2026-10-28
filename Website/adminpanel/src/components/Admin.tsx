@@ -10,6 +10,7 @@ type Product = {
     subCategory?: string;
     color?: string;
     name: string;
+    productCode?: string;
     slug?: string;
     description?: string;
     price: number;
@@ -26,7 +27,7 @@ type Collection = { id: string; name: string; description: string; image?: strin
 type Submission = { id: string; name: string; category: string; collection: string; price: number; status: "Pending" | "Approved" | "Rejected"; description?: string };
 type MediaItem = { id: string; name: string; src: string; source: string };
 type Page = "dashboard" | "products" | "collections" | "submissions" | "media" | "settings";
-type ProductForm = { name: string; category: string; subCategory: string; color: string; productCollection: string; price: string; compareAtPrice: string; stock: string; description: string; images: string; featured: boolean; active: boolean };
+type ProductForm = { name: string; productCode: string; category: string; subCategory: string; color: string; productCollection: string; price: string; compareAtPrice: string; stock: string; description: string; images: string; featured: boolean; active: boolean };
 // Local development: frontend/.env.local
 // Vercel production: VITE_API_URL=https://srishtimantra-1.onrender.com/api
 
@@ -127,7 +128,7 @@ const defaultCollections: Collection[] = [
     { id: "narikela", name: "Narikela", description: "Natural textures and thoughtful craft." },
 ];
 const categories = ["Jewellery", "Clothing", "Handicrafts", "Artwork", "Accessories", "Other"];
-const initialForm: ProductForm = { name: "", category: "", subCategory: "", color: "", productCollection: "", price: "", compareAtPrice: "", stock: "0", description: "", images: "", featured: false, active: true };
+const initialForm: ProductForm = { name: "", productCode: "", category: "", subCategory: "", color: "", productCollection: "", price: "", compareAtPrice: "", stock: "0", description: "", images: "", featured: false, active: true };
 const clothingSubCategories = ["Sarees", "Kurti", "Kurta Sets", "Dresses", "Tops", "Blouses", "Lehengas", "Kids Wear", "Men’s Wear", "Dupattas", "Other"];
 const dressColors = ["Black", "White", "Red", "Maroon", "Pink", "Blue", "Navy Blue", "Green", "Olive", "Yellow", "Orange", "Purple", "Brown", "Beige", "Cream", "Grey", "Multicolor"];
 function readLocal<T,>(key: string, fallback: T): T {
@@ -228,6 +229,7 @@ export default function Admin() {
         setEditingProduct(product);
         setForm({
             name: product.name || "",
+            productCode: product.productCode || "",
             category: product.category || "",
             subCategory: product.subCategory || "",
             color: product.color || "",
@@ -255,7 +257,7 @@ export default function Admin() {
             return;
         }
         const body = {
-            name: form.name.trim(), category: form.category, subCategory: form.category === "Clothing" ? form.subCategory : "",
+            name: form.name.trim(), productCode: form.productCode.trim(), category: form.category, subCategory: form.category === "Clothing" ? form.subCategory : "",
             color: form.category === "Clothing" ? form.color : "", productCollection: form.category === "Jewellery" ? form.productCollection : "",
             price, compareAtPrice, stock, description: form.description.trim(),
             images: form.images.split("\n").map((image) => image.trim()).filter(Boolean),
@@ -392,8 +394,8 @@ export default function Admin() {
     }
     function uploadMedia(event: ChangeEvent<HTMLInputElement>) {
         const files = Array.from(event.target.files || []);
-        const valid = files.filter((file) => file.size <= 1_000_000);
-        if (valid.length !== files.length) notify("Some images were skipped because they exceed 1 MB.");
+        const valid = files.filter((file) => file.size <= 5 * 1024 * 1024);
+        if (valid.length !== files.length) notify("Some images were skipped because they exceed 5 MB.");
         valid.forEach((file) => {
             const reader = new FileReader();
             reader.onload = () => setMedia((current) => [...current, { id: crypto.randomUUID(), name: file.name, src: String(reader.result), source: "Uploaded media" }]);
@@ -442,8 +444,8 @@ export default function Admin() {
                 <div className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-[#d6c0a5]/40 blur-3xl" />
                 <div className="relative w-full max-w-md rounded-3xl border border-[#e6d8c7] bg-[#fffdf9] p-7 shadow-[0_24px_80px_rgba(65,45,30,0.12)] sm:p-9">
                     <div className="mb-8 text-center">
-                        <div className="px-25"><img src="/s-logo.png" alt="" width="200px"/></div>
-                        
+                        <div className="px-25"><img src="/s-logo.png" alt="" width="200px" /></div>
+
                         <p className="mt-2 text-[10px] font-semibold tracking-[.24em] text-[#9a7859]">ADMINISTRATION PORTAL</p>
                     </div>
                     <div className="mb-6">
@@ -542,7 +544,7 @@ export default function Admin() {
                     </section>}
                     {page === "media" && <section>
                         <PageHeading eyebrow="VISUAL ASSETS" title="Media library" description="Browse product and collection images." action={<label className="btn-primary cursor-pointer"><Upload size={16} /> Upload image<input type="file" accept="image/*" multiple className="hidden" onChange={uploadMedia} /></label>} />
-                        <Notice>Uploaded images are saved in this browser for the prototype. Keep files under 1 MB. For production, use image storage such as Cloudinary.</Notice>
+                        <Notice>Uploaded images are saved in this browser for the prototype. Keep files under 5 MB. For production, use image storage such as Cloudinary.</Notice>
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">{media.map((m) => <div className="overflow-hidden rounded-xl border border-[#e8ddd0] bg-white" key={m.id}><div className="grid h-32 place-items-center bg-[#f1e7d9]">{m.src ? <img src={m.src} alt={m.name} className="h-full w-full object-cover" /> : <ImageIcon />}</div><div className="p-3"><strong className="block break-words text-xs">{m.name}</strong><small className="text-[#8a786d]">{m.source}</small></div></div>)}</div>
                         {media.length === 0 && <div className="panel mt-3"><Empty icon={<Images />} title="Your media library is empty" detail="Upload an image to get started." /></div>}
                     </section>}
@@ -564,6 +566,7 @@ export default function Admin() {
                     </div>
                     <div className="grid gap-x-5 gap-y-4 rounded-2xl border border-[#eee3d6] bg-white p-4 sm:grid-cols-2 sm:p-5">
                         <Field label="Product name *"><input className="control w-full rounded-xl border border-[#e2d4c3] bg-white px-3.5 py-3 text-sm font-normal text-[#33251f] shadow-sm outline-none transition placeholder:text-[#b3a397] hover:border-[#c8ad8e] focus:border-[#9a7047] focus:ring-4 focus:ring-[#9a7047]/10" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="Handcrafted necklace" /></Field>
+                        <Field label="Product code"><input className="control w-full rounded-xl border border-[#e2d4c3] bg-white px-3.5 py-3 text-sm font-normal text-[#33251f] shadow-sm outline-none transition placeholder:text-[#b3a397] hover:border-[#c8ad8e] focus:border-[#9a7047] focus:ring-4 focus:ring-[#9a7047]/10" value={form.productCode} onChange={(e) => setForm({ ...form, productCode: e.target.value })} placeholder="e.g. SM-JWL-001" /></Field>
                         <Field label="Category *"><select className="control rounded-xl border-[#d9c8b2] bg-[#fffdf9] px-3 py-3 focus:border-[#9a7047] focus:ring-2 focus:ring-[#9a7047]/15" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value, subCategory: "", productCollection: "", color: "" })} required><option value="">Select category</option>{categories.map((c) => <option key={c}>{c}</option>)}</select></Field>
                         {form.category === "Jewellery" && <Field label="Jewellery collection"><select className="control rounded-xl border-[#d9c8b2] bg-[#fffdf9] px-3 py-3" value={form.productCollection} onChange={(e) => setForm({ ...form, productCollection: e.target.value })}><option value="">Choose a collection</option>{collections.slice(0, 7).map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}</select></Field>}
                         {form.category === "Clothing" && <Field label="Clothing sub-category *"><select className="control rounded-xl border-[#d9c8b2] bg-[#fffdf9] px-3 py-3" value={form.subCategory} onChange={(e) => setForm({ ...form, subCategory: e.target.value })} required><option value="">Choose clothing type</option>{clothingSubCategories.map((item) => <option key={item} value={item}>{item}</option>)}</select></Field>}
@@ -616,12 +619,12 @@ export default function Admin() {
                                 <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-[#e4d5c1] bg-white px-4 py-6 text-center transition hover:border-[#9a7047] hover:bg-[#fffaf2]">
                                     <span className="grid h-12 w-12 place-items-center rounded-full bg-[#f0e4d3] text-[#765137]"><Upload size={21} /></span>
                                     <span className="text-sm font-semibold text-[#493729]">{form.images.split("\n").filter(Boolean).length ? "Add more images" : "Choose product images"}</span>
-                                    <span className="text-xs text-[#8a786d]">Select multiple files · JPG, PNG, WEBP · up to 1 MB each</span>
+                                    <span className="text-xs text-[#8a786d]">Select multiple files · JPG, PNG, WEBP · up to 5 MB each</span>
                                     <input type="file" accept="image/*" multiple className="sr-only" onChange={(event) => {
                                         const files = Array.from(event.target.files || []);
-                                        const tooLarge = files.filter((file) => file.size > 1_000_000);
-                                        if (tooLarge.length) notify("Some images were skipped because each file must be 1 MB or smaller.");
-                                        const valid = files.filter((file) => file.size <= 1_000_000);
+                                        const tooLarge = files.filter((file) => file.size > 5 * 1024 * 1024);
+                                        if (tooLarge.length) notify("Some images were skipped because each file must be 5 MB or smaller.");
+                                        const valid = files.filter((file) => file.size <= 5 * 1024 * 1024);
                                         Promise.all(valid.map((file) => new Promise<string>((resolve, reject) => {
                                             const reader = new FileReader();
                                             reader.onload = () => resolve(String(reader.result));
