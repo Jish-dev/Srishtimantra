@@ -82,28 +82,61 @@ async function apiRequest<T = unknown>(
 }
 
 async function uploadProductImage(file: File): Promise<string> {
-    const signatureResponse = await api.post("/products/upload-signature");
-    const { timestamp, signature, folder, cloudName, apiKey } = signatureResponse.data || {};
+    // Ask our backend to create a fresh Cloudinary signature. The API Secret
+    // must remain on the backend and must never be included in this frontend.
+    let signaturePayload: any;
+    try {
+        const signatureResponse = await api.post(`${API}/products/upload-signature`);
+        const responseData = signatureResponse.data;
+        signaturePayload = responseData?.data ?? responseData?.result ?? responseData;
+    } catch (error: unknown) {
+        if (axios.isAxiosError(error)) {
+            const serverMessage = (error.response?.data as any)?.message
+                || (error.response?.data as any)?.error;
+            throw new Error(
+                serverMessage
+                    || `Could not get a Cloudinary signature from ${API}/products/upload-signature. Check that the backend route is deployed.`
+            );
+        }
+        throw error instanceof Error ? error : new Error("Could not request a Cloudinary upload signature.");
+    }
+
+    const timestamp = signaturePayload?.timestamp;
+    const signature = signaturePayload?.signature;
+    const folder = signaturePayload?.folder;
+    const cloudName = signaturePayload?.cloudName;
+    const apiKey = signaturePayload?.apiKey;
 
     if (!timestamp || !signature || !folder || !cloudName || !apiKey) {
-        throw new Error("Cloudinary upload configuration is incomplete.");
+        throw new Error(
+            "The backend did not return all Cloudinary signing fields (timestamp, signature, folder, cloudName, apiKey). Deploy the upload-signature backend route and verify its response."
+        );
     }
 
     const uploadData = new FormData();
-    uploadData.append("file", file);
+    uploadData.append("file", file, file.name);
     uploadData.append("api_key", String(apiKey));
     uploadData.append("timestamp", String(timestamp));
     uploadData.append("folder", String(folder));
+    // Required for signed uploads. Do not remove this field.
     uploadData.append("signature", String(signature));
 
-    const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-        { method: "POST", body: uploadData }
-    );
-    const result = await response.json();
+    const uploadUrl = `https://api.cloudinary.com/v1_1/${String(cloudName).trim()}/image/upload`;
+    const response = await fetch(uploadUrl, { method: "POST", body: uploadData });
+    let result: any;
+    try {
+        result = await response.json();
+    } catch {
+        throw new Error(`Cloudinary returned an unreadable response (${response.status}).`);
+    }
 
-    if (!response.ok || typeof result.secure_url !== "string") {
-        throw new Error(result.error?.message || `Cloudinary upload failed for ${file.name}.`);
+    if (!response.ok || typeof result?.secure_url !== "string") {
+        const cloudinaryMessage = result?.error?.message;
+        throw new Error(
+            cloudinaryMessage
+                ? `Cloudinary upload failed: ${cloudinaryMessage}`
+                : `Cloudinary upload failed for ${file.name} (HTTP ${response.status}).`
+        );
     }
 
     return result.secure_url;
