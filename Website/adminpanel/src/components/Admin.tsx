@@ -81,6 +81,50 @@ async function apiRequest<T = unknown>(
     }
 }
 
+async function uploadProductImage(file: File): Promise<string> {
+    const signatureResponse = await api.post("/products/upload-signature");
+    const { timestamp, signature, folder, cloudName, apiKey } = signatureResponse.data || {};
+
+    if (!timestamp || !signature || !folder || !cloudName || !apiKey) {
+        throw new Error("Cloudinary upload configuration is incomplete.");
+    }
+
+    const uploadData = new FormData();
+    uploadData.append("file", file);
+    uploadData.append("api_key", String(apiKey));
+    uploadData.append("timestamp", String(timestamp));
+    uploadData.append("folder", String(folder));
+    uploadData.append("signature", String(signature));
+
+    const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        { method: "POST", body: uploadData }
+    );
+    const result = await response.json();
+
+    if (!response.ok || typeof result.secure_url !== "string") {
+        throw new Error(result.error?.message || `Cloudinary upload failed for ${file.name}.`);
+    }
+
+    return result.secure_url;
+}
+
+function dataUrlToFile(dataUrl: string, filename: string): File {
+    const parts = dataUrl.split(",");
+    if (parts.length < 2) throw new Error("An existing product image has an invalid data URL.");
+
+    const mimeMatch = parts[0].match(/data:(.*?);base64/);
+    const mimeType = mimeMatch?.[1] || "image/jpeg";
+    const binary = atob(parts[1]);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+
+    return new File([bytes], filename, { type: mimeType });
+}
+
 function normalizeProduct(value: any): Product | null {
     // Accept common Express response shapes and both Mongo _id / API id fields.
     const raw = value?.product ?? value?.data?.product ?? value?.data ?? value;
@@ -170,6 +214,7 @@ export default function Admin() {
     const [settings, setSettings] = useState<Record<string, string>>(() => readLocal("sm_settings_v1", {}));
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [imageUploading, setImageUploading] = useState(false);
     const [error, setError] = useState("");
     const [toast, setToast] = useState("");
     const [search, setSearch] = useState("");
@@ -256,15 +301,26 @@ export default function Admin() {
             notify("Check the product name, category, MRP, optional offer price and stock.");
             return;
         }
-        const body = {
-            name: form.name.trim(), productCode: form.productCode.trim(), category: form.category, subCategory: form.category === "Clothing" ? form.subCategory : "",
-            color: form.category === "Clothing" ? form.color : "", productCollection: form.category === "Jewellery" ? form.productCollection : "",
-            price, compareAtPrice, stock, description: form.description.trim(),
-            images: form.images.split("\n").map((image) => image.trim()).filter(Boolean),
-            featured: form.featured, active: form.active,
-        };
         setSaving(true);
         try {
+            // Convert legacy Base64 images to Cloudinary URLs before saving.
+            const selectedImages = form.images.split("\n").map((image) => image.trim()).filter(Boolean);
+            const imageUrls = await Promise.all(
+                selectedImages.map(async (image, index) => {
+                    if (!image.startsWith("data:image/")) return image;
+                    const file = dataUrlToFile(image, `product-image-${Date.now()}-${index}.jpg`);
+                    return uploadProductImage(file);
+                })
+            );
+
+            const body = {
+                name: form.name.trim(), productCode: form.productCode.trim(), category: form.category, subCategory: form.category === "Clothing" ? form.subCategory : "",
+                color: form.category === "Clothing" ? form.color : "", productCollection: form.category === "Jewellery" ? form.productCollection : "",
+                price, compareAtPrice, stock, description: form.description.trim(),
+                images: imageUrls,
+                featured: form.featured, active: form.active,
+            };
+
             if (editingProduct && !editingProduct._id) {
                 throw new Error("This product has no MongoDB ID. Reload the products and try again.");
             }
@@ -618,30 +674,47 @@ export default function Admin() {
                             <div className="rounded-2xl border-2 border-dashed border-[#d6c2a5] bg-[#fbf6ee] p-4 sm:p-6">
                                 <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-[#e4d5c1] bg-white px-4 py-6 text-center transition hover:border-[#9a7047] hover:bg-[#fffaf2]">
                                     <span className="grid h-12 w-12 place-items-center rounded-full bg-[#f0e4d3] text-[#765137]"><Upload size={21} /></span>
-                                    <span className="text-sm font-semibold text-[#493729]">{form.images.split("\n").filter(Boolean).length ? "Add more images" : "Choose product images"}</span>
-                                    <span className="text-xs text-[#8a786d]">Select multiple files · JPG, PNG, WEBP · up to 5 MB each</span>
-                                    <input type="file" accept="image/*" multiple className="sr-only" onChange={(event) => {
-                                        const files = Array.from(event.target.files || []);
+                                    <span className="text-sm font-semibold text-[#493729]">{imageUploading ? "Uploading to Cloudinary..." : form.images.split("\n").filter(Boolean).length ? "Add more images" : "Choose product images"}</span>
+                                    <span className="text-xs text-[#8a786d]">{imageUploading ? "Please wait while images upload..." : "Select multiple files · JPG, PNG, WEBP · up to 5 MB each"}</span>
+                                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple className="sr-only" disabled={imageUploading || saving} onChange={async (event) => {
+                                        const input = event.currentTarget;
+                                        const files = Array.from(input.files || []);
+                                        input.value = "";
+
                                         const tooLarge = files.filter((file) => file.size > 5 * 1024 * 1024);
                                         if (tooLarge.length) notify("Some images were skipped because each file must be 5 MB or smaller.");
-                                        const valid = files.filter((file) => file.size <= 5 * 1024 * 1024);
-                                        Promise.all(valid.map((file) => new Promise<string>((resolve, reject) => {
-                                            const reader = new FileReader();
-                                            reader.onload = () => resolve(String(reader.result));
-                                            reader.onerror = () => reject(new Error(`Could not read ${file.name}`));
-                                            reader.readAsDataURL(file);
-                                        }))).then((images) => setForm((current) => ({ ...current, images: [...current.images.split("\n").map((v) => v.trim()).filter(Boolean), ...images].join("\n") }))).catch(() => notify("Could not read one of the selected images."));
-                                        event.target.value = "";
+
+                                        const valid = files.filter((file) =>
+                                            file.size <= 5 * 1024 * 1024 && file.type.startsWith("image/")
+                                        );
+                                        if (!valid.length) return;
+
+                                        setImageUploading(true);
+                                        try {
+                                            const uploadedUrls = await Promise.all(valid.map(uploadProductImage));
+                                            setForm((current) => ({
+                                                ...current,
+                                                images: [
+                                                    ...current.images.split("\n").map((value) => value.trim()).filter(Boolean),
+                                                    ...uploadedUrls,
+                                                ].join("\n"),
+                                            }));
+                                            notify(`${uploadedUrls.length} image(s) uploaded to Cloudinary.`);
+                                        } catch (uploadError) {
+                                            notify(uploadError instanceof Error ? uploadError.message : "Cloudinary image upload failed.");
+                                        } finally {
+                                            setImageUploading(false);
+                                        }
                                     }} />
                                 </label>
                                 {form.images.trim() && <p className="mt-4 text-xs font-semibold text-[#694733]">{form.images.split("\n").filter(Boolean).length} image(s) selected — choose “Add more images” to append more photos.</p>}
                                 {form.images.trim() && <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">{form.images.split("\n").filter(Boolean).map((image, index) => <div key={`${index}-${image.slice(0, 20)}`} className="group relative overflow-hidden rounded-xl border border-[#e4d5c1] bg-white"><img src={image} alt={`Product preview ${index + 1}`} className="h-24 w-full object-cover" onError={(event) => { event.currentTarget.style.opacity = "0.25"; }} /><button type="button" onClick={() => setForm((current) => ({ ...current, images: current.images.split("\n").filter((_, i) => i !== index).join("\n") }))} className="absolute right-1 top-1 rounded-full bg-[#34251f] px-2 py-1 text-xs text-white shadow hover:bg-rose-700" aria-label={`Remove image ${index + 1}`}>×</button></div>)}</div>}
-                                <p className="mt-3 text-[11px] leading-5 text-[#8a786d]">Selected photos are sent with the product to your backend. For production, use Cloudinary or another image-storage service.</p>
+                                <p className="mt-3 text-[11px] leading-5 text-[#8a786d]">Images upload to Cloudinary. Only image URLs are saved with the product, keeping API requests small.</p>
                             </div>
                         </Field>
                         <Field label="Description" full><textarea className="control min-h-24 w-full rounded-xl border border-[#e2d4c3] bg-white px-3.5 py-3 text-sm font-normal text-[#33251f] shadow-sm outline-none transition placeholder:text-[#b3a397] hover:border-[#c8ad8e] focus:border-[#9a7047] focus:ring-4 focus:ring-[#9a7047]/10" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Product story, craftsmanship and details..." /></Field>
                     </div>
-                    <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-[#e8ddd0] pt-4"><button type="button" className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#e2d4c3] bg-white px-4 py-2.5 text-sm font-semibold text-[#604a3a] transition duration-200 hover:border-[#b58b55] hover:bg-[#fbf3e7] active:scale-[.98]" onClick={() => setProductModal(false)}>Cancel</button><button className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#34251f] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#34251f]/10 transition duration-200 hover:-translate-y-0.5 hover:bg-[#51392c] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0" disabled={saving}>{saving ? "Saving..." : "Save product"}</button></div>
+                    <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-[#e8ddd0] pt-4"><button type="button" className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#e2d4c3] bg-white px-4 py-2.5 text-sm font-semibold text-[#604a3a] transition duration-200 hover:border-[#b58b55] hover:bg-[#fbf3e7] active:scale-[.98]" onClick={() => setProductModal(false)}>Cancel</button><button className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#34251f] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#34251f]/10 transition duration-200 hover:-translate-y-0.5 hover:bg-[#51392c] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0" disabled={saving || imageUploading}>{imageUploading ? "Uploading images..." : saving ? "Saving..." : "Save product"}</button></div>
                 </form>
             </Modal>}
             {collectionModal && <Modal title={editingCollection ? "Edit collection" : "Add collection"} onClose={() => setCollectionModal(false)}>
