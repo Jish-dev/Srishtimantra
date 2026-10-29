@@ -2,6 +2,7 @@
 import type { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import Product from "../models/product.js";
+import cloudinary from "../config/cloudinary.js";
 
 function slugify(value: string): string {
   return value
@@ -102,7 +103,55 @@ function productData(body: Record<string, unknown>) {
     data.compareAtPrice = Number(body.compareAtPrice);
   }
 
+  // Optional product code / SKU support
+  if (typeof body.productCode === "string") {
+    data.productCode = body.productCode.trim();
+  }
+
+  if (typeof body.sku === "string") {
+    data.sku = body.sku.trim();
+  }
+
   return data;
+}
+
+// POST /api/products/upload-signature
+// Generates a signature for direct, authenticated Cloudinary uploads.
+export async function getUploadSignature(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      res.status(500).json({
+        message: "Cloudinary environment variables are not configured",
+      });
+      return;
+    }
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const folder = "srishtimantra/products";
+
+    const signature = cloudinary.utils.api_sign_request(
+      { timestamp, folder },
+      apiSecret
+    );
+
+    res.json({
+      timestamp,
+      signature,
+      folder,
+      cloudName,
+      apiKey,
+    });
+  } catch (error) {
+    next(error);
+  }
 }
 
 // GET /api/products
@@ -125,7 +174,7 @@ export async function getProducts(
     }
 
     if (typeof req.query.productCollection === "string") {
-      filter.collection = req.query.productCollection;
+      filter.productCollection = req.query.productCollection;
     }
 
     if (req.query.featured === "true") {
@@ -240,18 +289,17 @@ export async function updateProduct(
       req.body as Record<string, unknown>
     );
 
-    // Preserve existing images when the request omits "images".
+    // Preserve existing images when images are omitted.
     if (!Array.isArray(req.body.images)) {
       delete updates.images;
     }
 
-    // Preserve existing compare-at price when that field is omitted.
+    // Preserve compare-at price when omitted.
     if (!Object.prototype.hasOwnProperty.call(req.body, "compareAtPrice")) {
       delete updates.compareAtPrice;
     }
 
     existingProduct.set(updates);
-
     await existingProduct.save();
 
     res.json({
